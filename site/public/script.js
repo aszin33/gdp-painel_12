@@ -7,17 +7,32 @@ async function verificarStatus() {
         const response = await fetch('/api/status');
         const data = await response.json();
         
-        const statusEl = document.getElementById('status');
+        const statusCard = document.getElementById('botStatus');
+        const statStatus = document.getElementById('statStatus');
+        const statServers = document.getElementById('statServers');
+        const statRAM = document.getElementById('statRAM');
+        
+        console.log('Status do bot:', data);
         
         if (data.status === 'online') {
-            statusEl.className = 'status online';
-            statusEl.innerHTML = '<span class="dot"></span><span>✅ Bot Online</span>';
+            statusCard.className = 'status-card online';
+            statusCard.querySelector('span').textContent = 'Bot Online';
+            
+            if (statStatus) statStatus.textContent = 'Online';
+            if (statServers) statServers.textContent = data.servidores || '0';
+            if (statRAM) statRAM.textContent = data.ram || '100MB';
         } else {
-            statusEl.className = 'status offline';
-            statusEl.innerHTML = '<span class="dot"></span><span>❌ Bot Offline</span>';
+            statusCard.className = 'status-card offline';
+            statusCard.querySelector('span').textContent = 'Bot Offline';
+            
+            if (statStatus) statStatus.textContent = 'Offline';
+            if (statServers) statServers.textContent = '-';
+            if (statRAM) statRAM.textContent = '-';
         }
     } catch (error) {
-        console.error('Erro:', error);
+        console.error('Erro ao verificar status:', error);
+        document.getElementById('botStatus').className = 'status-card offline';
+        document.getElementById('botStatus').querySelector('span').textContent = 'Erro de conexão';
     }
 }
 
@@ -58,22 +73,27 @@ async function executarGDP() {
     const btn = event.currentTarget;
     
     btn.disabled = true;
-    btn.textContent = '⏳ Enviando...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
     
     try {
+        console.log(`Enviando GDP para: /api/gdp/${servidorAtual}/${quantidade}`);
+        
         const response = await fetch(`/api/gdp/${servidorAtual}/${quantidade}`);
         const data = await response.json();
         
+        console.log('Resposta:', data);
+        
         if (data.sucesso) {
-            mostrarToast('Comando GDP enviado com sucesso!', 'success');
+            mostrarToast('✅ Comando GDP enviado com sucesso!', 'success');
         } else {
-            mostrarToast('Erro: ' + (data.erro || 'desconhecido'), 'error');
+            mostrarToast('❌ Erro: ' + (data.erro || 'desconhecido'), 'error');
         }
     } catch (error) {
-        mostrarToast('Erro de conexão', 'error');
+        console.error('Erro:', error);
+        mostrarToast('❌ Erro de conexão', 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = '🚀 Criar';
+        btn.innerHTML = '<i class="fas fa-play"></i> Executar';
     }
 }
 
@@ -103,26 +123,29 @@ async function executarNuclear() {
     
     fecharModal();
     
-    const btn = document.querySelector('.btn-danger');
-    const textoOriginal = btn.textContent;
-    
+    const btn = document.querySelector('.btn-nuclear');
     btn.disabled = true;
-    btn.textContent = '⏳ Enviando...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
     
     try {
+        console.log(`Enviando Nuclear para: /api/nuclear/${servidorAtual}`);
+        
         const response = await fetch(`/api/nuclear/${servidorAtual}`);
         const data = await response.json();
+        
+        console.log('Resposta:', data);
         
         if (data.sucesso) {
             mostrarToast('☢️ Comando nuclear enviado!', 'warning');
         } else {
-            mostrarToast('Erro: ' + (data.erro || 'desconhecido'), 'error');
+            mostrarToast('❌ Erro: ' + (data.erro || 'desconhecido'), 'error');
         }
     } catch (error) {
-        mostrarToast('Erro de conexão', 'error');
+        console.error('Erro:', error);
+        mostrarToast('❌ Erro de conexão', 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = textoOriginal;
+        btn.innerHTML = '<i class="fas fa-radiation"></i> EXECUTAR';
     }
 }
 
@@ -141,6 +164,7 @@ function mostrarToast(mensagem, tipo) {
 // ==================== INICIALIZAÇÃO ====================
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 GDP Control iniciado');
     verificarStatus();
     setInterval(verificarStatus, 30000);
     
