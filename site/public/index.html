@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zxy-panda - GDP Control</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <h1>🐼 Zxy-panda</h1>
+                <span class="badge">GDP Control</span>
+            </div>
+            <div id="status" class="status offline">
+                <span class="dot"></span>
+                <span>Verificando...</span>
+            </div>
+        </header>
+
+        <!-- Main -->
+        <main>
+            <!-- Configuração -->
+            <section class="card">
+                <h2>⚙️ Configurar Servidor</h2>
+                <div class="input-group">
+                    <input type="text" id="serverId" placeholder="ID do servidor Discord">
+                    <button onclick="salvarServidor()" class="btn-primary">Salvar</button>
+                </div>
+                <div id="serverInfo" class="info hidden">
+                    ✅ Servidor ativo: <strong id="activeServer"></strong>
+                </div>
+            </section>
+
+            <!-- Comandos -->
+            <section class="card">
+                <h2>📝 Criar Canais GDP</h2>
+                <p>Cria canais no formato <strong>G.D.P-001</strong>, <strong>G.D.P-002</strong>, etc.</p>
+                <div class="input-group">
+                    <input type="number" id="gdpQuantidade" value="100" min="1" max="500">
+                    <button onclick="executarGDP()" class="btn-success">🚀 Criar</button>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>☢️ Limpeza Nuclear</h2>
+                <p class="warning">⚠️ Esta ação é IRREVERSÍVEL!</p>
+                <ul>
+                    <li>🗑️ Deletar todos os canais</li>
+                    <li>👑 Deletar todos os cargos</li>
+                    <li>👥 Banir todos os membros</li>
+                </ul>
+                <button onclick="confirmarNuclear()" class="btn-danger">💀 EXECUTAR NUCLEAR</button>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal Nuclear -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h3>☢️ Confirmar Ação Nuclear</h3>
+            <p>Servidor: <strong id="modalServer"></strong></p>
+            <p>Digite <strong>CONFIRMAR</strong> para prosseguir:</p>
+            <input type="text" id="confirmInput" placeholder="CONFIRMAR">
+            <div class="modal-buttons">
+                <button onclick="fecharModal()" class="btn-secondary">Cancelar</button>
+                <button onclick="executarNuclear()" class="btn-danger">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
