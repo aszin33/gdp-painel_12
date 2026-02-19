@@ -5,25 +5,26 @@ import requests
 from urllib.parse import urlparse
 import time
 
-# ==================== CONFIGURAÇÕES FIXAS ====================
+# ==================== CONFIGURAÇÕES ====================
 
-# SEUS DADOS - JÁ CONFIGURADOS
-DISCLOUD_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEyOTcwNzEyNTkzNzY0MjI5NjciLCJrZXkiOiJCUXlWM0FYOWc3byJ9.U0FJh5CKC4dc5g4hUOMeDwksON6W5NCQXF4X2DvnvHY"
-BOT_ID = "1386082293533249546"
+# Suas configurações (serão substituídas pelas variáveis de ambiente da Vercel)
+DISCLOUD_TOKEN = os.getenv('DISCLOUD_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEyOTcwNzEyNTkzNzY0MjI5NjciLCJrZXkiOiIyaUhIMFRrIn0.JpN6NSRQHCEL99jeCpgKtzxNMUXFa41Oist3rQ4kpbk')
+BOT_ID = os.getenv('BOT_ID', '1386082293533249546')
 
-# Headers padrão para API da Discloud
-HEADERS = {
-    'api-token': DISCLOUD_TOKEN,
-    'Content-Type': 'application/json',
-    'User-Agent': 'GDP-Control/1.0'
-}
+# Headers para API da Discloud
+def get_headers():
+    return {
+        'api-token': DISCLOUD_TOKEN,
+        'Content-Type': 'application/json',
+        'User-Agent': 'GDP-Control/1.0'
+    }
 
 class handler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         """Processa requisições GET"""
         
-        # CORS headers para permitir acesso do site
+        # CORS headers
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -34,55 +35,87 @@ class handler(BaseHTTPRequestHandler):
         # Parsear URL
         parsed = urlparse(self.path)
         path = parsed.path
-        query = parsed.query
         
-        print(f"📡 Requisição recebida: {path}")
+        print(f"📡 Requisição: {path}")
+        print(f"🔑 Token configurado: {'Sim' if DISCLOUD_TOKEN else 'Não'}")
         
-        # ========== ROTA RAIZ ==========
-        if path == '/' or path == '/api' or path == '/api/':
-            result = self.rota_raiz()
+        # ========== ROTA DE VERIFICAÇÃO DE TOKEN ==========
+        if path == '/api/verificar-token' or path == '/api/verificar':
+            result = self.verificar_token()
         
-        # ========== ROTA DE TESTE ==========
+        # ========== ROTA DE DIAGNÓSTICO COMPLETO ==========
+        elif path == '/api/diagnostico':
+            result = self.diagnostico_completo()
+        
+        # ========== ROTA DE TESTE BÁSICO ==========
         elif path == '/api/test':
             result = self.rota_teste()
         
         # ========== ROTA DE STATUS DO BOT ==========
         elif path == '/api/status':
-            result = self.rota_status()
+            # Primeiro verifica se o token é válido
+            token_valido = self.verificar_token_simples()
+            if not token_valido:
+                result = {
+                    "status": "offline",
+                    "erro": "Token inválido",
+                    "mensagem": "Use /api/verificar-token para diagnosticar"
+                }
+            else:
+                result = self.status_bot()
+        
+        # ========== ROTA DE INFORMAÇÕES DO BOT ==========
+        elif path == '/api/info':
+            token_valido = self.verificar_token_simples()
+            if not token_valido:
+                result = {
+                    "status": "offline",
+                    "erro": "Token inválido"
+                }
+            else:
+                result = self.info_bot()
         
         # ========== ROTA PARA LISTAR SERVIDORES ==========
         elif path == '/api/servidores':
-            result = self.rota_servidores()
-        
-        # ========== ROTA PARA INFO DO BOT ==========
-        elif path == '/api/info':
-            result = self.rota_info_bot()
+            token_valido = self.verificar_token_simples()
+            if not token_valido:
+                result = {
+                    "status": "erro",
+                    "erro": "Token inválido"
+                }
+            else:
+                result = self.listar_servidores()
         
         # ========== ROTA PARA ENVIAR COMANDO GDP ==========
         elif path.startswith('/api/gdp/'):
-            partes = path.split('/')
-            if len(partes) >= 4:
-                server_id = partes[3]
-                quantidade = partes[4] if len(partes) >= 5 else '100'
-                result = self.enviar_comando(f"!gdp {quantidade} {server_id}")
+            token_valido = self.verificar_token_simples()
+            if not token_valido:
+                result = {"erro": "Token inválido"}
             else:
-                result = {"erro": "URL inválida. Use: /api/gdp/ID_DO_SERVIDOR/QUANTIDADE"}
+                partes = path.split('/')
+                if len(partes) >= 4:
+                    server_id = partes[3]
+                    quantidade = partes[4] if len(partes) >= 5 else '100'
+                    result = self.enviar_comando(f"!gdp {quantidade} {server_id}")
+                else:
+                    result = {"erro": "URL inválida. Use: /api/gdp/ID_DO_SERVIDOR/QUANTIDADE"}
         
         # ========== ROTA PARA ENVIAR COMANDO NUCLEAR ==========
         elif path.startswith('/api/nuclear/'):
-            partes = path.split('/')
-            if len(partes) >= 4:
-                server_id = partes[3]
-                result = self.enviar_comando(f"!nuclear {server_id}")
+            token_valido = self.verificar_token_simples()
+            if not token_valido:
+                result = {"erro": "Token inválido"}
             else:
-                result = {"erro": "URL inválida. Use: /api/nuclear/ID_DO_SERVIDOR"}
+                partes = path.split('/')
+                if len(partes) >= 4:
+                    server_id = partes[3]
+                    result = self.enviar_comando(f"!nuclear {server_id}")
+                else:
+                    result = {"erro": "URL inválida. Use: /api/nuclear/ID_DO_SERVIDOR"}
         
-        # ========== ROTA PARA EXECUTAR COMANDO PERSONALIZADO ==========
-        elif path.startswith('/api/comando/'):
-            # /api/comando/!gdp%20100%201234
-            import urllib.parse
-            comando = urllib.parse.unquote(path.replace('/api/comando/', ''))
-            result = self.enviar_comando(comando)
+        # ========== ROTA PRINCIPAL ==========
+        elif path == '/' or path == '/api' or path == '/api/':
+            result = self.rota_principal()
         
         # ========== ROTA NÃO ENCONTRADA ==========
         else:
@@ -91,12 +124,13 @@ class handler(BaseHTTPRequestHandler):
                 "rotas_disponiveis": [
                     "/api",
                     "/api/test",
+                    "/api/verificar-token",
+                    "/api/diagnostico",
                     "/api/status",
                     "/api/info",
                     "/api/servidores",
                     "/api/gdp/ID/QUANTIDADE",
-                    "/api/nuclear/ID",
-                    "/api/comando/COMANDO"
+                    "/api/nuclear/ID"
                 ]
             }
         
@@ -115,187 +149,308 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, api-token')
         self.end_headers()
     
-    # ==================== FUNÇÕES AUXILIARES ====================
+    # ==================== FUNÇÕES DE VERIFICAÇÃO ====================
     
-    def chamar_api_discloud(self, endpoint, metodo='GET', dados=None):
-        """Função genérica para chamar a API da Discloud"""
-        url = f"https://discloud.com/api/rest{endpoint}"
+    def verificar_token_simples(self):
+        """Verifica rapidamente se o token é válido"""
+        if not DISCLOUD_TOKEN:
+            return False
         
         try:
-            if metodo == 'GET':
-                response = requests.get(url, headers=HEADERS, timeout=15)
-            else:
-                response = requests.post(url, headers=HEADERS, json=dados, timeout=15)
+            response = requests.get(
+                "https://discloud.com/api/rest/user",
+                headers={'api-token': DISCLOUD_TOKEN},
+                timeout=5
+            )
+            return response.status_code == 200
+        except:
+            return False
+    
+    def verificar_token(self):
+        """Verificação detalhada do token"""
+        
+        if not DISCLOUD_TOKEN:
+            return {
+                "valido": False,
+                "erro": "Token não configurado",
+                "instrucao": "Configure a variável DISCLOUD_TOKEN na Vercel",
+                "token_atual": None
+            }
+        
+        try:
+            # Testar endpoint do usuário
+            response = requests.get(
+                "https://discloud.com/api/rest/user",
+                headers={'api-token': DISCLOUD_TOKEN},
+                timeout=10
+            )
             
-            return {
-                "sucesso": response.status_code == 200,
-                "status": response.status_code,
-                "dados": response.json() if response.status_code == 200 else None,
-                "texto": response.text if response.status_code != 200 else None
-            }
+            if response.status_code == 200:
+                dados = response.json()
+                return {
+                    "valido": True,
+                    "status": "✅ Token válido!",
+                    "usuario": dados.get('user', {}).get('username', 'Desconhecido'),
+                    "email": dados.get('user', {}).get('email', ''),
+                    "plano": dados.get('plan', {}).get('name', 'Free'),
+                    "token_preview": DISCLOUD_TOKEN[:30] + "..."
+                }
+            elif response.status_code == 401:
+                return {
+                    "valido": False,
+                    "status": "❌ Token inválido",
+                    "erro": "Token rejeitado pela Discloud (401)",
+                    "instrucao": "Gere um novo token com o comando .api no Discord da Discloud",
+                    "token_preview": DISCLOUD_TOKEN[:30] + "..."
+                }
+            else:
+                return {
+                    "valido": False,
+                    "status": f"❌ Erro {response.status_code}",
+                    "resposta": response.text[:200],
+                    "token_preview": DISCLOUD_TOKEN[:30] + "..."
+                }
         except requests.exceptions.ConnectionError:
-            return {"sucesso": False, "erro": "Erro de conexão com a Discloud"}
-        except requests.exceptions.Timeout:
-            return {"sucesso": False, "erro": "Timeout na conexão"}
+            return {
+                "valido": False,
+                "erro": "Erro de conexão com a Discloud",
+                "instrucao": "Verifique se a Discloud está online"
+            }
         except Exception as e:
-            return {"sucesso": False, "erro": str(e)}
+            return {
+                "valido": False,
+                "erro": str(e)
+            }
     
-    def enviar_comando(self, comando):
-        """Envia um comando para o bot via terminal da Discloud"""
+    def diagnostico_completo(self):
+        """Faz diagnóstico completo testando vários endpoints"""
         
-        print(f"📤 Enviando comando: {comando}")
-        
-        # Primeiro, verificar se o bot está online
-        status = self.chamar_api_discloud(f"/app/{BOT_ID}")
-        
-        if not status['sucesso']:
+        if not DISCLOUD_TOKEN:
             return {
-                "status": "erro",
-                "mensagem": "Não foi possível conectar ao bot",
-                "detalhes": status.get('erro', 'Bot offline')
+                "token_configurado": False,
+                "erro": "Token não configurado",
+                "instrucao": "Configure a variável DISCLOUD_TOKEN na Vercel"
             }
         
-        # Enviar comando via terminal
-        resultado = self.chamar_api_discloud(
-            f"/app/{BOT_ID}/cmd",
-            metodo='POST',
-            dados={"command": comando}
-        )
+        resultados = []
         
-        if resultado['sucesso']:
-            return {
-                "status": "sucesso",
-                "comando": comando,
-                "mensagem": f"Comando enviado com sucesso para o bot"
-            }
+        # Endpoints para testar
+        endpoints = [
+            {"nome": "Usuário", "url": "/user", "importante": True},
+            {"nome": "Apps do usuário", "url": "/apps", "importante": True},
+            {"nome": "Bot específico", "url": f"/app/{BOT_ID}", "importante": True},
+            {"nome": "Status da API", "url": "/status", "importante": False}
+        ]
+        
+        for ep in endpoints:
+            try:
+                start = time.time()
+                response = requests.get(
+                    f"https://discloud.com/api/rest{ep['url']}",
+                    headers={'api-token': DISCLOUD_TOKEN},
+                    timeout=10
+                )
+                elapsed = time.time() - start
+                
+                info = {
+                    "teste": ep['nome'],
+                    "url": ep['url'],
+                    "status": response.status_code,
+                    "tempo": f"{elapsed:.2f}s",
+                    "funcionou": response.status_code == 200
+                }
+                
+                if response.status_code == 200:
+                    try:
+                        dados = response.json()
+                        info["resumo"] = str(dados)[:100] + "..."
+                    except:
+                        info["resumo"] = response.text[:100]
+                else:
+                    info["erro"] = response.text[:100]
+                
+                resultados.append(info)
+                
+            except Exception as e:
+                resultados.append({
+                    "teste": ep['nome'],
+                    "erro": str(e)
+                })
+        
+        # Análise dos resultados
+        token_valido = any(r.get('funcionou') for r in resultados if r.get('importante', False))
+        
+        if token_valido:
+            conclusao = "✅ Token válido! Conexão estabelecida."
         else:
-            return {
-                "status": "erro",
-                "comando": comando,
-                "mensagem": "Erro ao enviar comando",
-                "detalhes": resultado.get('erro', 'Desconhecido')
-            }
+            conclusao = "❌ Token inválido ou sem acesso. Gere um novo token com .api"
+        
+        return {
+            "token": {
+                "configurado": True,
+                "preview": DISCLOUD_TOKEN[:30] + "...",
+                "tamanho": len(DISCLOUD_TOKEN)
+            },
+            "bot_id": BOT_ID,
+            "resultados": resultados,
+            "conclusao": conclusao,
+            "proximos_passos": [
+                "Se o token for inválido: vá no Discord da Discloud e digite .api",
+                "Se o token for válido mas o bot não for encontrado: verifique o BOT_ID",
+                "Se tudo funcionar: use /api/status para ver o bot"
+            ]
+        }
     
-    # ==================== ROTAS ====================
+    # ==================== FUNÇÕES DO BOT ====================
     
-    def rota_raiz(self):
-        """Rota inicial da API"""
+    def rota_principal(self):
+        """Rota principal da API"""
+        token_valido = self.verificar_token_simples()
+        
         return {
             "nome": "GDP Control API",
-            "versao": "2.0",
+            "versao": "3.0",
             "status": "online",
+            "token": {
+                "configurado": bool(DISCLOUD_TOKEN),
+                "valido": token_valido
+            },
             "bot": {
-                "id": BOT_ID,
-                "token_configurado": bool(DISCLOUD_TOKEN)
+                "id": BOT_ID
             },
             "endpoints": {
-                "teste": "/api/test",
+                "verificar_token": "/api/verificar-token",
+                "diagnostico": "/api/diagnostico",
                 "status": "/api/status",
                 "info": "/api/info",
                 "servidores": "/api/servidores",
-                "gdp": "/api/gdp/ID_DO_SERVIDOR/QUANTIDADE",
-                "nuclear": "/api/nuclear/ID_DO_SERVIDOR",
-                "comando": "/api/comando/COMANDO"
+                "gdp": "/api/gdp/ID/QUANTIDADE",
+                "nuclear": "/api/nuclear/ID"
             }
         }
     
     def rota_teste(self):
-        """Rota para testar se a API está funcionando"""
+        """Rota de teste básico"""
         return {
             "status": "online",
-            "mensagem": "API funcionando corretamente",
-            "timestamp": int(time.time()),
-            "configuracoes": {
-                "token": "configurado" if DISCLOUD_TOKEN else "não configurado",
-                "token_preview": DISCLOUD_TOKEN[:20] + "..." if DISCLOUD_TOKEN else None,
-                "bot_id": BOT_ID
-            }
+            "mensagem": "API funcionando",
+            "timestamp": time.time(),
+            "token_configurado": bool(DISCLOUD_TOKEN)
         }
     
-    def rota_status(self):
-        """Verifica status do bot na Discloud"""
-        
-        # Tentar diferentes endpoints para garantir
-        endpoints = [
-            f"/app/{BOT_ID}",
-            f"/user",
-            f"/apps"
-        ]
-        
-        resultados = []
-        for endpoint in endpoints:
-            res = self.chamar_api_discloud(endpoint)
-            resultados.append({
-                "endpoint": endpoint,
-                "status": res['status'] if 'status' in res else None,
-                "sucesso": res['sucesso']
-            })
+    def status_bot(self):
+        """Pega status do bot"""
+        try:
+            response = requests.get(
+                f"https://discloud.com/api/rest/app/{BOT_ID}",
+                headers=get_headers(),
+                timeout=10
+            )
             
-            if res['sucesso']:
-                # Se algum endpoint funcionou, usamos ele
-                if endpoint == f"/app/{BOT_ID}":
-                    dados = res['dados']
-                    return {
-                        "status": "online",
-                        "nome": dados.get('name', 'GDP Bot'),
-                        "servidores": dados.get('guilds', 0),
-                        "ram": dados.get('ram', '100MB'),
-                        "online_desde": dados.get('onlineSince', ''),
-                        "detalhes": dados
-                    }
-                elif endpoint == "/user":
-                    # Se o user funcionou mas o app não, o bot pode estar offline
-                    return {
-                        "status": "offline",
-                        "mensagem": "Bot offline ou ID incorreto",
-                        "usuario": res['dados']
-                    }
-        
-        # Nenhum endpoint funcionou
-        return {
-            "status": "offline",
-            "mensagem": "Não foi possível conectar à Discloud",
-            "testes": resultados
-        }
+            if response.status_code == 200:
+                dados = response.json()
+                return {
+                    "status": "online",
+                    "nome": dados.get('name', 'Desconhecido'),
+                    "servidores": dados.get('guilds', 0),
+                    "ram": dados.get('ram', '100MB'),
+                    "online_desde": dados.get('onlineSince', '')
+                }
+            elif response.status_code == 404:
+                return {
+                    "status": "offline",
+                    "erro": "Bot não encontrado",
+                    "codigo": 404,
+                    "instrucao": "Verifique se o BOT_ID está correto"
+                }
+            else:
+                return {
+                    "status": "offline",
+                    "codigo": response.status_code,
+                    "resposta": response.text[:100]
+                }
+        except Exception as e:
+            return {
+                "status": "offline",
+                "erro": str(e)
+            }
     
-    def rota_info_bot(self):
+    def info_bot(self):
         """Informações detalhadas do bot"""
-        resultado = self.chamar_api_discloud(f"/app/{BOT_ID}")
-        
-        if resultado['sucesso']:
-            dados = resultado['dados']
-            return {
-                "status": "online",
-                "id": BOT_ID,
-                "nome": dados.get('name', 'Desconhecido'),
-                "linguagem": dados.get('lang', 'Python'),
-                "ram": dados.get('ram', '100MB'),
-                "servidores": dados.get('guilds', 0),
-                "usuarios": dados.get('users', 0),
-                "online_desde": dados.get('onlineSince', ''),
-                "comandos_executados": dados.get('commands', 0),
-                "dados_completos": dados
-            }
-        else:
-            return {
-                "status": "offline",
-                "id": BOT_ID,
-                "erro": resultado.get('erro', 'Bot offline')
-            }
+        try:
+            response = requests.get(
+                f"https://discloud.com/api/rest/app/{BOT_ID}",
+                headers=get_headers(),
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return {
+                    "status": "online",
+                    "dados": response.json()
+                }
+            else:
+                return {
+                    "status": "offline",
+                    "codigo": response.status_code
+                }
+        except Exception as e:
+            return {"erro": str(e)}
     
-    def rota_servidores(self):
-        """Lista os servidores onde o bot está"""
-        resultado = self.chamar_api_discloud(f"/app/{BOT_ID}")
-        
-        if resultado['sucesso']:
-            dados = resultado['dados']
-            return {
-                "status": "online",
-                "total_servidores": dados.get('guilds', 0),
-                "servidores": dados.get('guildsList', [])
-            }
-        else:
-            return {
-                "status": "offline",
-                "mensagem": "Não foi possível listar servidores"
-            }
+    def listar_servidores(self):
+        """Lista servidores do bot"""
+        try:
+            response = requests.get(
+                f"https://discloud.com/api/rest/app/{BOT_ID}",
+                headers=get_headers(),
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                dados = response.json()
+                return {
+                    "total": dados.get('guilds', 0),
+                    "servidores": dados.get('guildsList', [])
+                }
+            else:
+                return {"erro": "Não foi possível listar servidores"}
+        except Exception as e:
+            return {"erro": str(e)}
+    
+    def enviar_comando(self, comando):
+        """Envia comando para o bot"""
+        try:
+            # Primeiro verifica se bot está online
+            status = requests.get(
+                f"https://discloud.com/api/rest/app/{BOT_ID}",
+                headers=get_headers(),
+                timeout=5
+            )
+            
+            if status.status_code != 200:
+                return {
+                    "erro": "Bot offline ou não encontrado",
+                    "codigo": status.status_code
+                }
+            
+            # Envia comando
+            response = requests.post(
+                f"https://discloud.com/api/rest/app/{BOT_ID}/cmd",
+                headers=get_headers(),
+                json={"command": comando},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return {
+                    "sucesso": True,
+                    "comando": comando,
+                    "mensagem": "Comando enviado com sucesso"
+                }
+            else:
+                return {
+                    "erro": f"Erro {response.status_code}",
+                    "detalhes": response.text[:100]
+                }
+        except Exception as e:
+            return {"erro": str(e)}
