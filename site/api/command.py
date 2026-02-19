@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import time
 
 # ==================== CONFIGURAÇÕES ====================
-DISCLOUD_TOKEN = os.getenv('DISCLOUD_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEyOTcwNzEyNTkzNzY0MjI5NjciLCJrZXkiOiJLS2JnM3UifQ.r69UTZ4HsT-oppc1RjdEKiFBS0z3vCR8tXZB_L-l2Sw')
+DISCLOUD_TOKEN = os.getenv('DISCLOUD_TOKEN', 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IjEyOTcwNzEyNTkzNzY0MjI5NjciLCJrZXkiOiJkMmM5MGQxZDhhODNhMDE5NzBkZjY5OTY1N2Q0In0.l7SDgr5LR7TAXqsr6tgOV9yRcb8Z8mYuwLQwM6u_sJI')
 BOT_ID = os.getenv('BOT_ID', '1386082293533249546')
 API_BASE_URL = "https://api.discloud.app/v2"  # <-- NOVA URL DA API
 
