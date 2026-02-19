@@ -8,7 +8,7 @@ import time
 # ==================== CONFIGURAÇÕES ====================
 
 # Suas configurações (serão substituídas pelas variáveis de ambiente da Vercel)
-DISCLOUD_TOKEN = os.getenv('DISCLOUD_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEyOTcwNzEyNTkzNzY0MjI5NjciLCJrZXkiOiIyaUhIMFRrIn0.JpN6NSRQHCEL99jeCpgKtzxNMUXFa41Oist3rQ4kpbk')
+DISCLOUD_TOKEN = os.getenv('DISCLOUD_TOKEN', 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IjEyOTcwNzEyNTkzNzY0MjI5NjciLCJrZXkiOiJlYmE0NDBiZTg2YWFhZTkzNmQzZDY5OTY1MmNmIn0.WlI-ncUm4U1a26lS4ZzveI21d-imC7KFw5MI77K2_Rc')
 BOT_ID = os.getenv('BOT_ID', '1386082293533249546')
 
 # Headers para API da Discloud
